@@ -21,21 +21,34 @@
 #include <WiFiClient.h>
 #include "esp8266_pwm.h"
 
+//#include <FancyLED.h> //https://github.com/carlynorama/Arduino-Library-FancyLED
+
+
 #ifdef BONJOUR_SUPPORT
 #include <ESP8266mDNS.h>
 #endif
 
 
-// Main ########################################################################
+// Variables ###################################################################
 
 #ifdef BONJOUR_SUPPORT
-// multicast DNS responder
-MDNSResponder mdns;
+MDNSResponder mdns; // multicast DNS responder
 #endif
 
 WiFiServer server(TCP_LISTEN_PORT);
 ESP8266_PWM pwm;
 
+WiFiClient client;
+uint8 pulse = 0;
+uint8 pulse_dir = 1;
+int pulse_counter = 1;
+
+
+// #############################################################################
+// Main ########################################################################
+// #############################################################################
+
+// ----------------------------------------------------------------------------
 #ifdef STATIC_IP
 IPAddress parse_ip_address(const char *str) {
     IPAddress result;
@@ -60,6 +73,7 @@ IPAddress parse_ip_address(const char *str) {
 
 #endif
 
+
 // ----------------------------------------------------------------------------
 void connect_to_wifi() {
   int count = 0;
@@ -73,7 +87,6 @@ void connect_to_wifi() {
   IPAddress ip_address = parse_ip_address(IP_ADDRESS);
   IPAddress gateway_address = parse_ip_address(GATEWAY_ADDRESS);
   IPAddress netmask = parse_ip_address(NET_MASK);
-
   WiFi.config(ip_address, gateway_address, netmask);
 #endif
 
@@ -96,6 +109,7 @@ void connect_to_wifi() {
   pwm.set(0, PWM_MAX_DUTY);
 }
 
+
 // ----------------------------------------------------------------------------
 void error() {
   int count = 0;
@@ -113,9 +127,9 @@ void error() {
   }
 }
 
+
 // ----------------------------------------------------------------------------
-void setup(void)
-{
+void setup(void){
 #ifdef USE_WDT
   wdt_enable(1000);
 #endif
@@ -155,14 +169,9 @@ void setup(void)
   server.begin();
 }
 
-WiFiClient client;
-uint8 pulse = 0;
-uint8 pulse_dir = 1;
-int pulse_counter = 1;
 
 // ----------------------------------------------------------------------------
-void loop(void)
-{
+void loop(void){
   size_t bytes_read;
   uint8_t net_buf[BUFFER_SIZE];
   uint8_t serial_buf[BUFFER_SIZE];
