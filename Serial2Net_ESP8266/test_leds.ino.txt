@@ -1,0 +1,49 @@
+/*
+
+  Rename me to .ino and upload me to the ESP8266 to test the Led Pins
+
+ */
+
+// Config #####################################################################
+
+#include    "config_CUSTOM.h"
+//#include  "config_315.h"
+//#include  "config_433.h"
+
+
+// -----------------------------------------------------------------------------
+void setup(void){
+  digitalWrite(WIFI_LED, LOW);
+  digitalWrite(CONNECTION_LED, LOW);
+  digitalWrite(TX_LED, LOW);
+  digitalWrite(RX_LED, LOW);
+
+  pinMode(WIFI_LED, OUTPUT);
+  pinMode(CONNECTION_LED, OUTPUT);
+  pinMode(TX_LED, OUTPUT);
+  pinMode(RX_LED, OUTPUT);
+
+  Serial.begin(BAUD_RATE);
+}
+
+
+// -----------------------------------------------------------------------------
+void loop(void){
+    TestLed(WIFI_LED, "WIFI_LED");
+    TestLed(CONNECTION_LED, "CONNECTION_LED");
+    TestLed(TX_LED, "TX_LED");
+    TestLed(RX_LED, "RX_LED");
+}
+
+
+// -----------------------------------------------------------------------------
+void TestLed(int pin, String name){
+    Serial.print("Led '");
+    Serial.print(name);
+    Serial.print("'  on Pin ");
+    Serial.println(pin);
+    digitalWrite(pin, HIGH);
+    delay(2000);
+    digitalWrite(pin, LOW);
+    delay(500);
+}

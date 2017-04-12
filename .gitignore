@@ -1,0 +1,16 @@
+
+# Mac hidden files ----------
+.AppleDouble
+:2e*
+/Icon*
+.#*
+.afpDeleted*
+
+# PlatformIO ----------
+.pioenvs
+.piolibdeps
+.clang_complete
+.gcc-flags.json
+
+# —————————————————
+Serial2Net_ESP8266/config_*
