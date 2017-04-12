@@ -10,6 +10,10 @@
 //#include  "config_315.h"
 //#include  "config_433.h"
 
+//FancyLED led_tx		= FancyLED(RX_LED,	HIGH);
+//FancyLED led_rx		= FancyLED(TX_LED,	HIGH);
+//FancyLED led_wifi	= FancyLED(WIFI_LED,	HIGH);
+//FancyLED led_connect= FancyLED(CONNECTION_LED,	HIGH);
 
 // -----------------------------------------------------------------------------
 void setup(void){
