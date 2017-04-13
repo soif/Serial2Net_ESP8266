@@ -55,63 +55,6 @@ SyncLED		led_connect(CONNECTION_LED);
 // #############################################################################
 
 // ----------------------------------------------------------------------------
-IPAddress parse_ip_address(const char *str) {
-	IPAddress result;
-	int index = 0;
-	result[0] = 0;
-	while (*str) {
-		if (isdigit((unsigned char)*str)) {
-			result[index] *= 10;
-			result[index] += *str - '0';
-		}
-		else {
-			index++;
-			if(index<4) {
-				result[index] = 0;
-			}
-		}
-		str++;
-	}
-	return result;
-}
-
-
-// ----------------------------------------------------------------------------
-void connect_to_wifi() {
-
-	// is this really needed ?
-	WiFi.mode(WIFI_STA);
-	WiFi.disconnect();
-	delay(100);
-
-	// connect
-	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-#ifdef STATIC_IP
-	IPAddress ip_address = parse_ip_address(IP_ADDRESS);
-	IPAddress gateway_address = parse_ip_address(GATEWAY_ADDRESS);
-	IPAddress netmask = parse_ip_address(NET_MASK);
-	WiFi.config(ip_address, gateway_address, netmask);
-#endif
-
-	led_connect.Off();
-	led_wifi.turnOff();
-	led_tx.turnOff();
-	led_rx.turnOff();
-
-	// Wait for WIFI connection
-	while (WiFi.status() != WL_CONNECTED) {
-#ifdef USE_WDT
-		wdt_reset();
-#endif
-		led_wifi.toggle();
-		delay(100);
-	}
-	led_wifi.turnOn();
-}
-
-
-// ----------------------------------------------------------------------------
 void setup(void){
 
 #ifdef USE_WDT
@@ -135,47 +78,6 @@ void setup(void){
 	// Start server
 	server.begin();
 	server.setNoDelay(true);
-}
-
-
-// ----------------------------------------------------------------------------
-void UpdateBlinkPattern(int srv_count){
-	if(srv_count > 0){
-		unsigned long pattern=0;
-		int len=  ( (PATTERN_ON_COUNT + PATTERN_OFF_COUNT) * srv_count ) + PATTERN_PAUSE_COUNT;
-
-		if(len > 32){
-			pattern=0B1101101010;
-			len=10;
-		}
-		else if(srv_count==1){
-			pattern=0B1111;
-			len=4;
-		}
-		else{
-			//build pattern (from right to left)
-			int b=0;
-			for(int i=0; i < PATTERN_PAUSE_COUNT; i++){
-				bitWrite(pattern,b,0);
-				b++;
-			}
-			for (int i=0 ; i < srv_count; i++){
-				for(int j=0; j < PATTERN_OFF_COUNT; j++){
-					bitWrite(pattern,b, 0);
-					b++;
-				}
-				for(int k=0; k < PATTERN_ON_COUNT; k++){
-					bitWrite(pattern,b, 1);
-					b++;
-				}
-			}
-		}
-		//Serial.print(pattern,BIN);
-		led_connect.setPattern(pattern, len);
-	}
-	else{
-		led_connect.Off();
-	}
 }
 
 
@@ -262,4 +164,104 @@ void loop(void){
 			  }
     	}
     }
+}
+
+
+// Functions ###################################################################
+
+// ----------------------------------------------------------------------------
+void connect_to_wifi() {
+
+	// is this really needed ?
+	WiFi.mode(WIFI_STA);
+	WiFi.disconnect();
+	delay(100);
+
+	// connect
+	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+#ifdef STATIC_IP
+	IPAddress ip_address = parse_ip_address(IP_ADDRESS);
+	IPAddress gateway_address = parse_ip_address(GATEWAY_ADDRESS);
+	IPAddress netmask = parse_ip_address(NET_MASK);
+	WiFi.config(ip_address, gateway_address, netmask);
+#endif
+
+	led_connect.Off();
+	led_wifi.turnOff();
+	led_tx.turnOff();
+	led_rx.turnOff();
+
+	// Wait for WIFI connection
+	while (WiFi.status() != WL_CONNECTED) {
+#ifdef USE_WDT
+		wdt_reset();
+#endif
+		led_wifi.toggle();
+		delay(100);
+	}
+	led_wifi.turnOn();
+}
+
+
+// ----------------------------------------------------------------------------
+void UpdateBlinkPattern(int srv_count){
+	if(srv_count > 0){
+		unsigned long pattern=0;
+		int len=  ( (PATTERN_ON_COUNT + PATTERN_OFF_COUNT) * srv_count ) + PATTERN_PAUSE_COUNT;
+
+		if(len > 32){
+			pattern=0B1101101010;
+			len=10;
+		}
+		else if(srv_count==1){
+			pattern=0B1111;
+			len=4;
+		}
+		else{
+			//build pattern (from right to left)
+			int b=0;
+			for(int i=0; i < PATTERN_PAUSE_COUNT; i++){
+				bitWrite(pattern,b,0);
+				b++;
+			}
+			for (int i=0 ; i < srv_count; i++){
+				for(int j=0; j < PATTERN_OFF_COUNT; j++){
+					bitWrite(pattern,b, 0);
+					b++;
+				}
+				for(int k=0; k < PATTERN_ON_COUNT; k++){
+					bitWrite(pattern,b, 1);
+					b++;
+				}
+			}
+		}
+		//Serial.print(pattern,BIN);
+		led_connect.setPattern(pattern, len);
+	}
+	else{
+		led_connect.Off();
+	}
+}
+
+
+// ----------------------------------------------------------------------------
+IPAddress parse_ip_address(const char *str) {
+	IPAddress result;
+	int index = 0;
+	result[0] = 0;
+	while (*str) {
+		if (isdigit((unsigned char)*str)) {
+			result[index] *= 10;
+			result[index] += *str - '0';
+		}
+		else {
+			index++;
+			if(index<4) {
+				result[index] = 0;
+			}
+		}
+		str++;
+	}
+	return result;
 }
