@@ -6,9 +6,6 @@
 
 #define USE_WDT
 
-//#define BONJOUR_SUPPORT
-#define DEVICE_NAME     "Serial2Net_ESP8266" // Bonjour  name
-
 // IP Address ------------------------------------------------------------------
 #define STATIC_IP   // comment  to enable DHCP
 

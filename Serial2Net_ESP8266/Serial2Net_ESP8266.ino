@@ -3,48 +3,51 @@
 	https://github.com/soif/Serial2Net_ESP8266
 	Copyright 2017 François Déchery
 
-	** Description **
-	Briges a Serial Port to/from	(Wifi attached) LAN using a ESP8266 board
+	** Description **********************************************************
+	Briges a Serial Port to/from a (Wifi attached) LAN using a ESP8266 board
 
-	Inpired by : ESP8266 mDNS serial wifi bridge by Daniel Parnell
+	** Inpired by ***********************************************************
+	* ESP8266 Ser2net by Daniel Parnell
 	https://github.com/dparnell/esp8266-ser2net/blob/master/esp8266_ser2net.ino
+
+	* WiFiTelnetToSerial by Hristo Gochkov.
+	https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266WiFi/examples/WiFiTelnetToSerial/WiFiTelnetToSerial.ino
 */
 
-// Config #####################################################################
-//#include		"config_CUSTOM.h"
-#include	"config_315.h"
-//#include	"config_433.h"
+// Use your Own Config #########################################################
+//#include	"config_CUSTOM.h"
+//#include	"config_315.h"
+#include	"config_433.h"
 
 
 // Includes ###################################################################
 #include <ESP8266WiFi.h>
+#include <FancyLED.h> 		//https://github.com/carlynorama/Arduino-Library-FancyLED
+#include <SyncLED.h> 		//https://github.com/martin-podlubny/arduino-library-syncled
 
-#include <FancyLED.h> //https://github.com/carlynorama/Arduino-Library-FancyLED
-
-//#include <FancyLED.h> //https://github.com/carlynorama/Arduino-Library-FancyLED
-
-
-#ifdef BONJOUR_SUPPORT
-#include <ESP8266mDNS.h>
-#endif
 
 // Defines #####################################################################
-#define LED_CYCLE_DURATION 120
-#define LED_ON_PERCENT 70
+#define MAX_SRV_CLIENTS 		4
+
+#define PATTERN_DURATION		180ul
+#define PATTERN_PAUSE_COUNT		3
+#define PATTERN_ON_COUNT		1
+#define PATTERN_OFF_COUNT		1
+
+#define LED_PLULSE_DURATION		120
+#define LED_PLULSE_ON_PERCENT	70
+
 
 // Variables ###################################################################
-
-#ifdef BONJOUR_SUPPORT
-MDNSResponder mdns; // multicast DNS responder
-#endif
+int last_srv_clients_count=0;
 
 WiFiServer server(TCP_LISTEN_PORT);
-WiFiClient client;
+WiFiClient serverClients[MAX_SRV_CLIENTS];
 
-FancyLED led_tx		= FancyLED(RX_LED,	HIGH);
-FancyLED led_rx		= FancyLED(TX_LED,	HIGH);
-FancyLED led_wifi	= FancyLED(WIFI_LED,	HIGH);
-
+FancyLED	led_tx		= FancyLED(RX_LED,	HIGH);
+FancyLED	led_rx		= FancyLED(TX_LED,	HIGH);
+FancyLED	led_wifi	= FancyLED(WIFI_LED,	HIGH);
+SyncLED		led_connect(CONNECTION_LED);
 
 
 // #############################################################################
@@ -56,7 +59,6 @@ FancyLED led_wifi	= FancyLED(WIFI_LED,	HIGH);
 IPAddress parse_ip_address(const char *str) {
 	IPAddress result;
 	int index = 0;
-
 	result[0] = 0;
 	while (*str) {
 		if (isdigit((unsigned char)*str)) {
@@ -71,19 +73,20 @@ IPAddress parse_ip_address(const char *str) {
 		}
 		str++;
 	}
-
 	return result;
 }
-
 #endif
 
 
 // ----------------------------------------------------------------------------
 void connect_to_wifi() {
 
+	// is this really needed ?
 	WiFi.mode(WIFI_STA);
 	WiFi.disconnect();
 	delay(100);
+
+	// connect
 	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
 #ifdef STATIC_IP
@@ -93,7 +96,7 @@ void connect_to_wifi() {
 	WiFi.config(ip_address, gateway_address, netmask);
 #endif
 
-	digitalWrite(CONNECTION_LED, LOW);
+	led_connect.Off();
 	led_wifi.turnOff();
 	led_tx.turnOff();
 	led_rx.turnOff();
@@ -104,24 +107,9 @@ void connect_to_wifi() {
 		wdt_reset();
 #endif
 		led_wifi.toggle();
-		delay(150);
-	}
-	led_wifi.turnOn();
-}
-
-
-// ----------------------------------------------------------------------------
-void errorMdns() {
-	int count = 0;
-
-	digitalWrite(CONNECTION_LED, LOW);
-	led_tx.turnOff();
-	led_rx.turnOff();
-
-	while(1) {
-		led_wifi.toggle();
 		delay(100);
 	}
+	led_wifi.turnOn();
 }
 
 
@@ -132,28 +120,64 @@ void setup(void){
 	wdt_enable(1000);
 #endif
 
-	//set Leds
-	digitalWrite(CONNECTION_LED, LOW);
-	pinMode(CONNECTION_LED, OUTPUT);
-	led_rx.setFullPeriod(LED_CYCLE_DURATION);
-	led_rx.setDutyCycle(LED_ON_PERCENT);
-	led_tx.setFullPeriod(LED_CYCLE_DURATION);
-	led_tx.setDutyCycle(LED_ON_PERCENT);
-
-	Serial.begin(BAUD_RATE);
+	// Set Leds
+	led_connect.setRate(PATTERN_DURATION);
+	led_connect.Off();
+	led_rx.setFullPeriod(LED_PLULSE_DURATION);
+	led_rx.setDutyCycle(LED_PLULSE_ON_PERCENT);
+	led_tx.setFullPeriod(LED_PLULSE_DURATION);
+	led_tx.setDutyCycle(LED_PLULSE_ON_PERCENT);
 
 	// Connect to WiFi network
 	connect_to_wifi();
 
-#ifdef BONJOUR_SUPPORT
-	// Set up mDNS responder:
-	if (!mdns.begin(DEVICE_NAME, WiFi.localIP())) {
-		errorMdns();
-	}
-#endif
+	// Start UART
+	Serial.begin(BAUD_RATE);
 
-	// Start TCP server
+	// Start server
 	server.begin();
+	server.setNoDelay(true);
+}
+
+
+// ----------------------------------------------------------------------------
+void UpdateBlinkPattern(int srv_count){
+	if(srv_count > 0){
+		unsigned long pattern=0;
+		int len=  ( (PATTERN_ON_COUNT + PATTERN_OFF_COUNT) * srv_count ) + PATTERN_PAUSE_COUNT;
+
+		if(len > 32){
+			pattern=0B1101101010;
+			len=10;
+		}
+		else if(srv_count==1){
+			pattern=0B1111;
+			len=4;
+		}
+		else{
+			//build pattern (from right to left)
+			int b=0;
+			for(int i=0; i < PATTERN_PAUSE_COUNT; i++){
+				bitWrite(pattern,b,0);
+				b++;
+			}
+			for (int i=0 ; i < srv_count; i++){
+				for(int j=0; j < PATTERN_OFF_COUNT; j++){
+					bitWrite(pattern,b, 0);
+					b++;
+				}
+				for(int k=0; k < PATTERN_ON_COUNT; k++){
+					bitWrite(pattern,b, 1);
+					b++;
+				}
+			}
+		}
+		//Serial.print(pattern,BIN);
+		led_connect.setPattern(pattern, len);
+	}
+	else{
+		led_connect.Off();
+	}
 }
 
 
@@ -161,80 +185,83 @@ void setup(void){
 void loop(void){
 	led_tx.update();
 	led_rx.update();
+	led_connect.update();
 	//led_wifi.update();
-
-	size_t bytes_read;
-	uint8_t net_buf[BUFFER_SIZE];
-	uint8_t serial_buf[BUFFER_SIZE];
 
 #ifdef USE_WDT
 	wdt_reset();
 #endif
 
+	// Check Wifi connection -----------------
 	if(WiFi.status() != WL_CONNECTED) {
 		// we've lost the connection, so we need to reconnect
-		if(client) {
-			client.stop();
+		for(byte i = 0; i < MAX_SRV_CLIENTS; i++){
+			if(serverClients[i]){
+				serverClients[i].stop();
+			}
 		}
 		connect_to_wifi();
 	}
 
-#ifdef BONJOUR_SUPPORT
-	// Check for any mDNS queries and send responses
-	mdns.update();
-#endif
-
-	// Check if a client has connected
-	if (!client) {
-		// eat any bytes in the serial buffer as there is nothing to see them
-		while(Serial.available()) {
-			Serial.read();
+	// Check if there are any new clients ---------
+	uint8_t i;
+    if (server.hasClient()){
+		for(i = 0; i < MAX_SRV_CLIENTS; i++){
+			//find free/disconnected spot
+			if (!serverClients[i] || !serverClients[i].connected()){
+				if(serverClients[i]){
+					serverClients[i].stop();
+				}
+         		serverClients[i] = server.available();
+				//Serial1.print("New client: "); Serial1.print(i);
+				continue;
+        	}
 		}
+		// No free/disconnected spot so reject
+		WiFiClient serverClient = server.available();
+		serverClient.stop();
+    }
 
-		client = server.available();
-
-		if(!client) {
-#ifdef CONNECTION_LED
-			digitalWrite(CONNECTION_LED, LOW);
-#endif
-			return;
-		}
-
-#ifdef CONNECTION_LED
-		digitalWrite(CONNECTION_LED, HIGH);
-#endif
-	}
-
-
-#define min(a,b) ((a)<(b)?(a):(b))
-
-	if(client.connected()) {
-		// check the network for any bytes to send to the serial
-		int count = client.available();
-		if(count > 0) {
-			//led_tx.pulse(1, LED_CYCLE_DURATION, LED_ON_PERCENT);
-			led_tx.pulse();
-
-			bytes_read = client.read(net_buf, min(count, BUFFER_SIZE));
-			Serial.write(net_buf, bytes_read);
-			Serial.flush();
-		}
-
-		// now check the serial for any bytes to send to the network
-		bytes_read = 0;
-		while(Serial.available() && bytes_read < BUFFER_SIZE) {
-			serial_buf[bytes_read] = Serial.read();
-			bytes_read++;
-		}
-
-		if(bytes_read > 0) {
-			//led_rx.pulse(1, LED_CYCLE_DURATION, LED_ON_PERCENT);
-			led_rx.pulse();
-			client.write((const uint8_t*)serial_buf, bytes_read);
-			client.flush();
+	//blink according to clients connected ---------
+	int srv_clients_count=0;
+	for(i = 0; i < MAX_SRV_CLIENTS; i++){
+		if (serverClients[i] && serverClients[i].connected()){
+			srv_clients_count++;
 		}
 	}
-	else {
-		client.stop();
+
+	if(srv_clients_count != last_srv_clients_count){
+		last_srv_clients_count=srv_clients_count;
+		UpdateBlinkPattern(srv_clients_count);
 	}
+
+    // check clients for data ------------------------
+    for(i = 0; i < MAX_SRV_CLIENTS; i++){
+		if (serverClients[i] && serverClients[i].connected()){
+        	if(serverClients[i].available()){
+    			//get data from the telnet client and push it to the UART
+    			while(serverClients[i].available()) {
+			  		led_tx.pulse();
+			  		Serial.write(serverClients[i].read());
+			  		led_tx.update();
+				}
+			}
+		}
+    }
+
+    // check UART for data --------------------------
+    if(Serial.available()){
+	      size_t len = Serial.available();
+	      uint8_t sbuf[len];
+		  Serial.readBytes(sbuf, len);
+		  //push UART data to all connected telnet clients
+		  for(i = 0; i < MAX_SRV_CLIENTS; i++){
+			  if (serverClients[i] && serverClients[i].connected()){
+				  led_rx.pulse();
+				  serverClients[i].write(sbuf, len);
+				  led_tx.update();
+				  delay(1);
+			  }
+    	}
+    }
 }
