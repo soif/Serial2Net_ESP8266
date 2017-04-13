@@ -22,8 +22,8 @@
 
 // Includes ###################################################################
 #include <ESP8266WiFi.h>
-#include <FancyLED.h> 		//https://github.com/carlynorama/Arduino-Library-FancyLED
-#include <SyncLED.h> 		//https://github.com/martin-podlubny/arduino-library-syncled
+#include <FancyLED.h> 		// https://github.com/jej/Arduino-Library-FancyLED
+#include <SyncLED.h> 		// https://github.com/martin-podlubny/arduino-library-syncled
 
 
 // Defines #####################################################################
