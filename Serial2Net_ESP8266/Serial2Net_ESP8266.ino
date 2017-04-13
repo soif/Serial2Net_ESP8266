@@ -21,21 +21,25 @@
 
 // Includes ###################################################################
 #include <ESP8266WiFi.h>
-
 #include <FancyLED.h> //https://github.com/carlynorama/Arduino-Library-FancyLED
-
-//#include <FancyLED.h> //https://github.com/carlynorama/Arduino-Library-FancyLED
-
+#include <SyncLED.h> //https://github.com/martin-podlubny/arduino-library-syncled
 
 #ifdef BONJOUR_SUPPORT
 #include <ESP8266mDNS.h>
 #endif
 
+
 // Defines #####################################################################
 #define MAX_SRV_CLIENTS 4
 
+#define LED_CONNECT_RATE 180ul
+#define NUM_PAUSE 3
+#define NUM_ON 1
+#define NUM_OFF 1
+
 #define LED_CYCLE_DURATION 120
 #define LED_ON_PERCENT 70
+
 
 // Variables ###################################################################
 int last_srv_clients_count=0;
@@ -50,7 +54,7 @@ WiFiClient serverClients[MAX_SRV_CLIENTS];
 FancyLED led_tx		= FancyLED(RX_LED,	HIGH);
 FancyLED led_rx		= FancyLED(TX_LED,	HIGH);
 FancyLED led_wifi	= FancyLED(WIFI_LED,	HIGH);
-
+SyncLED led_connect(CONNECTION_LED);
 
 
 // #############################################################################
@@ -139,8 +143,8 @@ void setup(void){
 #endif
 
 	//set Leds
-	digitalWrite(CONNECTION_LED, LOW);
-	pinMode(CONNECTION_LED, OUTPUT);
+	led_connect.setRate(LED_CONNECT_RATE);
+	led_connect.Off();
 	led_rx.setFullPeriod(LED_CYCLE_DURATION);
 	led_rx.setDutyCycle(LED_ON_PERCENT);
 	led_tx.setFullPeriod(LED_CYCLE_DURATION);
@@ -163,13 +167,54 @@ void setup(void){
 	server.setNoDelay(true);
 }
 
+
 // ----------------------------------------------------------------------------
 void UpdateBlinkPattern(int srv_count){
+
 	if(srv_count > 0){
-		digitalWrite(CONNECTION_LED, HIGH);
+
+		//Serial.print(srv_count);
+
+		unsigned long pattern=0;
+		int len=  ( (NUM_ON + NUM_OFF) * srv_count ) + NUM_PAUSE;
+
+		if(len > 32){
+			//Serial.print(" (over 32) ");
+			pattern=0B1101101010;
+			len=10;
+		}
+		else if(srv_count==1){
+			//Serial.print(" (special) ");
+			pattern=0B1111;
+			len=4;
+		}
+		else{
+			//Serial.print(", len=");
+			//Serial.print(len);
+			int b=0;
+			for(int i=0; i < NUM_PAUSE; i++){
+				bitWrite(pattern,b,0);
+				b++;
+			}
+			for (int i=0 ; i < srv_count; i++){
+				for(int j=0; j < NUM_OFF; j++){
+					bitWrite(pattern,b, 0);
+					b++;
+				}
+				for(int k=0; k < NUM_ON; k++){
+					bitWrite(pattern,b, 1);
+					b++;
+				}
+			}
+		}
+
+		//Serial.print(" => ");
+		//Serial.print(pattern,BIN);
+		//Serial.println("");
+		led_connect.setPattern(pattern, len);
 	}
 	else{
-		digitalWrite(CONNECTION_LED, LOW);
+		led_connect.Off();
 	}
 }
 
@@ -177,6 +222,7 @@ void UpdateBlinkPattern(int srv_count){
 void loop(void){
 	led_tx.update();
 	led_rx.update();
+	led_connect.update();
 	//led_wifi.update();
 
 #ifdef USE_WDT
