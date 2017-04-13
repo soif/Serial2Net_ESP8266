@@ -24,10 +24,6 @@
 #include <FancyLED.h> //https://github.com/carlynorama/Arduino-Library-FancyLED
 #include <SyncLED.h> //https://github.com/martin-podlubny/arduino-library-syncled
 
-#ifdef BONJOUR_SUPPORT
-#include <ESP8266mDNS.h>
-#endif
-
 
 // Defines #####################################################################
 #define MAX_SRV_CLIENTS 4
@@ -43,10 +39,6 @@
 
 // Variables ###################################################################
 int last_srv_clients_count=0;
-
-#ifdef BONJOUR_SUPPORT
-MDNSResponder mdns; // multicast DNS responder
-#endif
 
 WiFiServer server(TCP_LISTEN_PORT);
 WiFiClient serverClients[MAX_SRV_CLIENTS];
@@ -84,7 +76,6 @@ IPAddress parse_ip_address(const char *str) {
 
 	return result;
 }
-
 #endif
 
 
@@ -121,21 +112,6 @@ void connect_to_wifi() {
 
 
 // ----------------------------------------------------------------------------
-void errorMdns() {
-	int count = 0;
-
-	digitalWrite(CONNECTION_LED, LOW);
-	led_tx.turnOff();
-	led_rx.turnOff();
-
-	while(1) {
-		led_wifi.toggle();
-		delay(100);
-	}
-}
-
-
-// ----------------------------------------------------------------------------
 void setup(void){
 
 #ifdef USE_WDT
@@ -152,13 +128,6 @@ void setup(void){
 
 	// Connect to WiFi network
 	connect_to_wifi();
-
-#ifdef BONJOUR_SUPPORT
-	// Set up mDNS responder:
-	if (!mdns.begin(DEVICE_NAME, WiFi.localIP())) {
-		errorMdns();
-	}
-#endif
 
 	//start UART
 	Serial.begin(BAUD_RATE);
@@ -218,6 +187,7 @@ void UpdateBlinkPattern(int srv_count){
 	}
 }
 
+
 // ----------------------------------------------------------------------------
 void loop(void){
 	led_tx.update();
@@ -228,10 +198,6 @@ void loop(void){
 #ifdef USE_WDT
 	wdt_reset();
 #endif
-#ifdef BONJOUR_SUPPORT
-	mdns.update(); // Check for any mDNS queries and send responses
-#endif
-
 
 	// Check connection -----------------
 	if(WiFi.status() != WL_CONNECTED) {
@@ -243,8 +209,6 @@ void loop(void){
 		}
 		connect_to_wifi();
 	}
-
-
 
 	// ----------------------------------
 	uint8_t i;
@@ -278,8 +242,6 @@ void loop(void){
 		last_srv_clients_count=srv_clients_count;
 		UpdateBlinkPattern(srv_clients_count);
 	}
-
-
 
     // check clients for data ------------------------
     for(i = 0; i < MAX_SRV_CLIENTS; i++){
