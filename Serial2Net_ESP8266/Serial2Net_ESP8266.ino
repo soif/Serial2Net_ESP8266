@@ -18,7 +18,6 @@
 
 // Includes ###################################################################
 #include <ESP8266WiFi.h>
-//#include <WiFiClient.h>
 
 #include <FancyLED.h> //https://github.com/carlynorama/Arduino-Library-FancyLED
 
@@ -29,7 +28,7 @@
 #include <ESP8266mDNS.h>
 #endif
 
-// Defines ###################################################################
+// Defines #####################################################################
 #define LED_CYCLE_DURATION 120
 #define LED_ON_PERCENT 70
 
@@ -46,15 +45,8 @@ FancyLED led_tx		= FancyLED(RX_LED,	HIGH);
 FancyLED led_rx		= FancyLED(TX_LED,	HIGH);
 FancyLED led_wifi	= FancyLED(WIFI_LED,	HIGH);
 
-<<<<<<< HEAD
-WiFiClient client;
-uint8 pulse = 0;
-uint8 pulse_dir = 1;
-int pulse_counter = 1;
 
 
-=======
->>>>>>> Leds
 // #############################################################################
 // Main ########################################################################
 // #############################################################################
@@ -88,7 +80,6 @@ IPAddress parse_ip_address(const char *str) {
 
 // ----------------------------------------------------------------------------
 void connect_to_wifi() {
-	int count = 0;
 
 	WiFi.mode(WIFI_STA);
 	WiFi.disconnect();
@@ -96,17 +87,10 @@ void connect_to_wifi() {
 	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
 #ifdef STATIC_IP
-<<<<<<< HEAD
-  IPAddress ip_address = parse_ip_address(IP_ADDRESS);
-  IPAddress gateway_address = parse_ip_address(GATEWAY_ADDRESS);
-  IPAddress netmask = parse_ip_address(NET_MASK);
-  WiFi.config(ip_address, gateway_address, netmask);
-=======
 	IPAddress ip_address = parse_ip_address(IP_ADDRESS);
 	IPAddress gateway_address = parse_ip_address(GATEWAY_ADDRESS);
 	IPAddress netmask = parse_ip_address(NET_MASK);
 	WiFi.config(ip_address, gateway_address, netmask);
->>>>>>> Leds
 #endif
 
 	digitalWrite(CONNECTION_LED, LOW);
@@ -140,15 +124,6 @@ void errorMdns() {
 	}
 }
 
-<<<<<<< HEAD
-
-// ----------------------------------------------------------------------------
-void setup(void){
-#ifdef USE_WDT
-  wdt_enable(1000);
-#endif
-=======
->>>>>>> Leds
 
 // ----------------------------------------------------------------------------
 void setup(void){
@@ -184,11 +159,6 @@ void setup(void){
 
 // ----------------------------------------------------------------------------
 void loop(void){
-<<<<<<< HEAD
-  size_t bytes_read;
-  uint8_t net_buf[BUFFER_SIZE];
-  uint8_t serial_buf[BUFFER_SIZE];
-=======
 	led_tx.update();
 	led_rx.update();
 	//led_wifi.update();
@@ -196,7 +166,6 @@ void loop(void){
 	size_t bytes_read;
 	uint8_t net_buf[BUFFER_SIZE];
 	uint8_t serial_buf[BUFFER_SIZE];
->>>>>>> Leds
 
 #ifdef USE_WDT
 	wdt_reset();
