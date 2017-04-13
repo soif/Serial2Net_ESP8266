@@ -27,15 +27,15 @@
 
 
 // Defines #####################################################################
-#define MAX_SRV_CLIENTS 4
+#define MAX_SRV_CLIENTS 		4
 
-#define LED_CONNECT_RATE 180ul
-#define NUM_PAUSE 3
-#define NUM_ON 1
-#define NUM_OFF 1
+#define PATTERN_DURATION		180ul
+#define PATTERN_PAUSE_COUNT		3
+#define PATTERN_ON_COUNT		1
+#define PATTERN_OFF_COUNT		1
 
-#define LED_CYCLE_DURATION 120
-#define LED_ON_PERCENT 70
+#define LED_PLULSE_DURATION		120
+#define LED_PLULSE_ON_PERCENT	70
 
 
 // Variables ###################################################################
@@ -81,9 +81,12 @@ IPAddress parse_ip_address(const char *str) {
 // ----------------------------------------------------------------------------
 void connect_to_wifi() {
 
+	// is this really needed ?
 	WiFi.mode(WIFI_STA);
 	WiFi.disconnect();
 	delay(100);
+
+	// connect
 	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
 #ifdef STATIC_IP
@@ -104,7 +107,7 @@ void connect_to_wifi() {
 		wdt_reset();
 #endif
 		led_wifi.toggle();
-		delay(150);
+		delay(100);
 	}
 	led_wifi.turnOn();
 }
@@ -118,18 +121,19 @@ void setup(void){
 #endif
 
 	// Set Leds
-	led_connect.setRate(LED_CONNECT_RATE);
+	led_connect.setRate(PATTERN_DURATION);
 	led_connect.Off();
-	led_rx.setFullPeriod(LED_CYCLE_DURATION);
-	led_rx.setDutyCycle(LED_ON_PERCENT);
-	led_tx.setFullPeriod(LED_CYCLE_DURATION);
-	led_tx.setDutyCycle(LED_ON_PERCENT);
+	led_rx.setFullPeriod(LED_PLULSE_DURATION);
+	led_rx.setDutyCycle(LED_PLULSE_ON_PERCENT);
+	led_tx.setFullPeriod(LED_PLULSE_DURATION);
+	led_tx.setDutyCycle(LED_PLULSE_ON_PERCENT);
 
 	// Connect to WiFi network
 	connect_to_wifi();
 
 	// Start UART
 	Serial.begin(BAUD_RATE);
+
 	// Start server
 	server.begin();
 	server.setNoDelay(true);
@@ -140,7 +144,7 @@ void setup(void){
 void UpdateBlinkPattern(int srv_count){
 	if(srv_count > 0){
 		unsigned long pattern=0;
-		int len=  ( (NUM_ON + NUM_OFF) * srv_count ) + NUM_PAUSE;
+		int len=  ( (PATTERN_ON_COUNT + PATTERN_OFF_COUNT) * srv_count ) + PATTERN_PAUSE_COUNT;
 
 		if(len > 32){
 			pattern=0B1101101010;
@@ -153,16 +157,16 @@ void UpdateBlinkPattern(int srv_count){
 		else{
 			//build pattern (from right to left)
 			int b=0;
-			for(int i=0; i < NUM_PAUSE; i++){
+			for(int i=0; i < PATTERN_PAUSE_COUNT; i++){
 				bitWrite(pattern,b,0);
 				b++;
 			}
 			for (int i=0 ; i < srv_count; i++){
-				for(int j=0; j < NUM_OFF; j++){
+				for(int j=0; j < PATTERN_OFF_COUNT; j++){
 					bitWrite(pattern,b, 0);
 					b++;
 				}
-				for(int k=0; k < NUM_ON; k++){
+				for(int k=0; k < PATTERN_ON_COUNT; k++){
 					bitWrite(pattern,b, 1);
 					b++;
 				}
