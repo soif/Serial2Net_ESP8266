@@ -5,10 +5,9 @@ This ESP8266 based project is a bridge which allows to send/receive the TX/RX Se
 
 ## Features
 
-- Supports 4 LAN clients
-- 4 Leds (Wifi State, Number of Client Connected, TX, RX)
-
-## User Guide
+- Supports 4 (or more) LAN clients
+- 4 Status Leds (Wifi State, Number of Clients Connected, TX, RX)
+- The "Clients Connected" Led blinks the time of clients count.
 
 
 ## Schematic
