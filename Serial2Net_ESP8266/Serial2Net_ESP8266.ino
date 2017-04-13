@@ -3,17 +3,20 @@
 	https://github.com/soif/Serial2Net_ESP8266
 	Copyright 2017 François Déchery
 
-	** Description **
+	** Description ********
 	Briges a Serial Port to/from	(Wifi attached) LAN using a ESP8266 board
 
-	Inpired by : ESP8266 mDNS serial wifi bridge by Daniel Parnell
+	** Inpired by *********
+	* ESP8266 mDNS serial wifi bridge by Daniel Parnell
 	https://github.com/dparnell/esp8266-ser2net/blob/master/esp8266_ser2net.ino
+	* WiFiTelnetToSerial by Hristo Gochkov.
+	https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266WiFi/examples/WiFiTelnetToSerial/WiFiTelnetToSerial.ino
 */
 
 // Config #####################################################################
 //#include		"config_CUSTOM.h"
-#include	"config_315.h"
-//#include	"config_433.h"
+//#include	"config_315.h"
+#include	"config_433.h"
 
 
 // Includes ###################################################################
@@ -29,17 +32,20 @@
 #endif
 
 // Defines #####################################################################
+#define MAX_SRV_CLIENTS 4
+
 #define LED_CYCLE_DURATION 120
 #define LED_ON_PERCENT 70
 
 // Variables ###################################################################
+int last_srv_clients_count=0;
 
 #ifdef BONJOUR_SUPPORT
 MDNSResponder mdns; // multicast DNS responder
 #endif
 
 WiFiServer server(TCP_LISTEN_PORT);
-WiFiClient client;
+WiFiClient serverClients[MAX_SRV_CLIENTS];
 
 FancyLED led_tx		= FancyLED(RX_LED,	HIGH);
 FancyLED led_rx		= FancyLED(TX_LED,	HIGH);
@@ -140,8 +146,6 @@ void setup(void){
 	led_tx.setFullPeriod(LED_CYCLE_DURATION);
 	led_tx.setDutyCycle(LED_ON_PERCENT);
 
-	Serial.begin(BAUD_RATE);
-
 	// Connect to WiFi network
 	connect_to_wifi();
 
@@ -152,10 +156,22 @@ void setup(void){
 	}
 #endif
 
-	// Start TCP server
+	//start UART
+	Serial.begin(BAUD_RATE);
+	//start server
 	server.begin();
+	server.setNoDelay(true);
 }
 
+// ----------------------------------------------------------------------------
+void UpdateBlinkPattern(int srv_count){
+	if(srv_count > 0){
+		digitalWrite(CONNECTION_LED, HIGH);
+	}
+	else{
+		digitalWrite(CONNECTION_LED, LOW);
+	}
+}
 
 // ----------------------------------------------------------------------------
 void loop(void){
@@ -163,78 +179,89 @@ void loop(void){
 	led_rx.update();
 	//led_wifi.update();
 
-	size_t bytes_read;
-	uint8_t net_buf[BUFFER_SIZE];
-	uint8_t serial_buf[BUFFER_SIZE];
-
 #ifdef USE_WDT
 	wdt_reset();
 #endif
+#ifdef BONJOUR_SUPPORT
+	mdns.update(); // Check for any mDNS queries and send responses
+#endif
 
+
+	// Check connection -----------------
 	if(WiFi.status() != WL_CONNECTED) {
 		// we've lost the connection, so we need to reconnect
-		if(client) {
-			client.stop();
+		for(byte i = 0; i < MAX_SRV_CLIENTS; i++){
+			if(serverClients[i]){
+				serverClients[i].stop();
+			}
 		}
 		connect_to_wifi();
 	}
 
-#ifdef BONJOUR_SUPPORT
-	// Check for any mDNS queries and send responses
-	mdns.update();
-#endif
 
-	// Check if a client has connected
-	if (!client) {
-		// eat any bytes in the serial buffer as there is nothing to see them
-		while(Serial.available()) {
-			Serial.read();
+
+	// ----------------------------------
+	uint8_t i;
+    //check if there are any new clients
+    if (server.hasClient()){
+		for(i = 0; i < MAX_SRV_CLIENTS; i++){
+			//find free/disconnected spot
+			if (!serverClients[i] || !serverClients[i].connected()){
+				if(serverClients[i]){
+					serverClients[i].stop();
+				}
+         		serverClients[i] = server.available();
+				//Serial1.print("New client: "); Serial1.print(i);
+				continue;
+        	}
 		}
+		//no free/disconnected spot so reject
+		WiFiClient serverClient = server.available();
+		serverClient.stop();
+    }
 
-		client = server.available();
-
-		if(!client) {
-#ifdef CONNECTION_LED
-			digitalWrite(CONNECTION_LED, LOW);
-#endif
-			return;
+	//blink according to clients connected ---------
+	int srv_clients_count=0;
+	for(i = 0; i < MAX_SRV_CLIENTS; i++){
+		if (serverClients[i] && serverClients[i].connected()){
+			srv_clients_count++;
 		}
+	}
 
-#ifdef CONNECTION_LED
-		digitalWrite(CONNECTION_LED, HIGH);
-#endif
+	if(srv_clients_count != last_srv_clients_count){
+		last_srv_clients_count=srv_clients_count;
+		UpdateBlinkPattern(srv_clients_count);
 	}
 
 
-#define min(a,b) ((a)<(b)?(a):(b))
 
-	if(client.connected()) {
-		// check the network for any bytes to send to the serial
-		int count = client.available();
-		if(count > 0) {
-			//led_tx.pulse(1, LED_CYCLE_DURATION, LED_ON_PERCENT);
-			led_tx.pulse();
-
-			bytes_read = client.read(net_buf, min(count, BUFFER_SIZE));
-			Serial.write(net_buf, bytes_read);
-			Serial.flush();
+    // check clients for data ------------------------
+    for(i = 0; i < MAX_SRV_CLIENTS; i++){
+		if (serverClients[i] && serverClients[i].connected()){
+        	if(serverClients[i].available()){
+    			//get data from the telnet client and push it to the UART
+    			while(serverClients[i].available()) {
+			  		led_tx.pulse();
+			  		Serial.write(serverClients[i].read());
+			  		led_tx.update();
+				}
+			}
 		}
+    }
 
-		// now check the serial for any bytes to send to the network
-		bytes_read = 0;
-		while(Serial.available() && bytes_read < BUFFER_SIZE) {
-			serial_buf[bytes_read] = Serial.read();
-			bytes_read++;
-		}
-
-		if(bytes_read > 0) {
-			//led_rx.pulse(1, LED_CYCLE_DURATION, LED_ON_PERCENT);
-			led_rx.pulse();
-			client.write((const uint8_t*)serial_buf, bytes_read);
-			client.flush();
-		}
-	}
-	else {
-		client.stop();
-	}
+    // check UART for data --------------------------
+    if(Serial.available()){
+	      size_t len = Serial.available();
+	      uint8_t sbuf[len];
+		  Serial.readBytes(sbuf, len);
+		  //push UART data to all connected telnet clients
+		  for(i = 0; i < MAX_SRV_CLIENTS; i++){
+			  if (serverClients[i] && serverClients[i].connected()){
+				  led_rx.pulse();
+				  serverClients[i].write(sbuf, len);
+				  led_tx.update();
+				  delay(1);
+			  }
+    	}
+    }
 }
