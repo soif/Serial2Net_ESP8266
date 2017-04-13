@@ -3,26 +3,27 @@
 	https://github.com/soif/Serial2Net_ESP8266
 	Copyright 2017 François Déchery
 
-	** Description ********
-	Briges a Serial Port to/from	(Wifi attached) LAN using a ESP8266 board
+	** Description **********************************************************
+	Briges a Serial Port to/from a (Wifi attached) LAN using a ESP8266 board
 
-	** Inpired by *********
-	* ESP8266 mDNS serial wifi bridge by Daniel Parnell
+	** Inpired by ***********************************************************
+	* ESP8266 Ser2net by Daniel Parnell
 	https://github.com/dparnell/esp8266-ser2net/blob/master/esp8266_ser2net.ino
+
 	* WiFiTelnetToSerial by Hristo Gochkov.
 	https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266WiFi/examples/WiFiTelnetToSerial/WiFiTelnetToSerial.ino
 */
 
-// Config #####################################################################
-//#include		"config_CUSTOM.h"
+// Use your Own Config #########################################################
+//#include	"config_CUSTOM.h"
 //#include	"config_315.h"
 #include	"config_433.h"
 
 
 // Includes ###################################################################
 #include <ESP8266WiFi.h>
-#include <FancyLED.h> //https://github.com/carlynorama/Arduino-Library-FancyLED
-#include <SyncLED.h> //https://github.com/martin-podlubny/arduino-library-syncled
+#include <FancyLED.h> 		//https://github.com/carlynorama/Arduino-Library-FancyLED
+#include <SyncLED.h> 		//https://github.com/martin-podlubny/arduino-library-syncled
 
 
 // Defines #####################################################################
@@ -43,10 +44,10 @@ int last_srv_clients_count=0;
 WiFiServer server(TCP_LISTEN_PORT);
 WiFiClient serverClients[MAX_SRV_CLIENTS];
 
-FancyLED led_tx		= FancyLED(RX_LED,	HIGH);
-FancyLED led_rx		= FancyLED(TX_LED,	HIGH);
-FancyLED led_wifi	= FancyLED(WIFI_LED,	HIGH);
-SyncLED led_connect(CONNECTION_LED);
+FancyLED	led_tx		= FancyLED(RX_LED,	HIGH);
+FancyLED	led_rx		= FancyLED(TX_LED,	HIGH);
+FancyLED	led_wifi	= FancyLED(WIFI_LED,	HIGH);
+SyncLED		led_connect(CONNECTION_LED);
 
 
 // #############################################################################
@@ -58,7 +59,6 @@ SyncLED led_connect(CONNECTION_LED);
 IPAddress parse_ip_address(const char *str) {
 	IPAddress result;
 	int index = 0;
-
 	result[0] = 0;
 	while (*str) {
 		if (isdigit((unsigned char)*str)) {
@@ -73,7 +73,6 @@ IPAddress parse_ip_address(const char *str) {
 		}
 		str++;
 	}
-
 	return result;
 }
 #endif
@@ -94,7 +93,7 @@ void connect_to_wifi() {
 	WiFi.config(ip_address, gateway_address, netmask);
 #endif
 
-	digitalWrite(CONNECTION_LED, LOW);
+	led_connect.Off();
 	led_wifi.turnOff();
 	led_tx.turnOff();
 	led_rx.turnOff();
@@ -118,7 +117,7 @@ void setup(void){
 	wdt_enable(1000);
 #endif
 
-	//set Leds
+	// Set Leds
 	led_connect.setRate(LED_CONNECT_RATE);
 	led_connect.Off();
 	led_rx.setFullPeriod(LED_CYCLE_DURATION);
@@ -129,9 +128,9 @@ void setup(void){
 	// Connect to WiFi network
 	connect_to_wifi();
 
-	//start UART
+	// Start UART
 	Serial.begin(BAUD_RATE);
-	//start server
+	// Start server
 	server.begin();
 	server.setNoDelay(true);
 }
@@ -139,27 +138,20 @@ void setup(void){
 
 // ----------------------------------------------------------------------------
 void UpdateBlinkPattern(int srv_count){
-
 	if(srv_count > 0){
-
-		//Serial.print(srv_count);
-
 		unsigned long pattern=0;
 		int len=  ( (NUM_ON + NUM_OFF) * srv_count ) + NUM_PAUSE;
 
 		if(len > 32){
-			//Serial.print(" (over 32) ");
 			pattern=0B1101101010;
 			len=10;
 		}
 		else if(srv_count==1){
-			//Serial.print(" (special) ");
 			pattern=0B1111;
 			len=4;
 		}
 		else{
-			//Serial.print(", len=");
-			//Serial.print(len);
+			//build pattern (from right to left)
 			int b=0;
 			for(int i=0; i < NUM_PAUSE; i++){
 				bitWrite(pattern,b,0);
@@ -176,10 +168,7 @@ void UpdateBlinkPattern(int srv_count){
 				}
 			}
 		}
-
-		//Serial.print(" => ");
 		//Serial.print(pattern,BIN);
-		//Serial.println("");
 		led_connect.setPattern(pattern, len);
 	}
 	else{
@@ -199,7 +188,7 @@ void loop(void){
 	wdt_reset();
 #endif
 
-	// Check connection -----------------
+	// Check Wifi connection -----------------
 	if(WiFi.status() != WL_CONNECTED) {
 		// we've lost the connection, so we need to reconnect
 		for(byte i = 0; i < MAX_SRV_CLIENTS; i++){
@@ -210,9 +199,8 @@ void loop(void){
 		connect_to_wifi();
 	}
 
-	// ----------------------------------
+	// Check if there are any new clients ---------
 	uint8_t i;
-    //check if there are any new clients
     if (server.hasClient()){
 		for(i = 0; i < MAX_SRV_CLIENTS; i++){
 			//find free/disconnected spot
@@ -225,7 +213,7 @@ void loop(void){
 				continue;
         	}
 		}
-		//no free/disconnected spot so reject
+		// No free/disconnected spot so reject
 		WiFiClient serverClient = server.available();
 		serverClient.stop();
     }
