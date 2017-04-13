@@ -55,7 +55,6 @@ SyncLED		led_connect(CONNECTION_LED);
 // #############################################################################
 
 // ----------------------------------------------------------------------------
-#ifdef STATIC_IP
 IPAddress parse_ip_address(const char *str) {
 	IPAddress result;
 	int index = 0;
@@ -75,7 +74,6 @@ IPAddress parse_ip_address(const char *str) {
 	}
 	return result;
 }
-#endif
 
 
 // ----------------------------------------------------------------------------
