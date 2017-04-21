@@ -4,7 +4,7 @@
     and include me from  Serial2Net_ESP8266.ino
 */
 
-#define USE_WDT
+//#define USE_WDT
 
 // IP Address ------------------------------------------------------------------
 #define STATIC_IP   // comment  to enable DHCP
