@@ -15,9 +15,9 @@
 */
 
 // Use your Own Config #########################################################
-//#include	"config_CUSTOM.h"
+#include	"config_CUSTOM.h"
 //#include	"config_315.h"
-#include	"config_433.h"
+//#include	"config_433.h"
 
 
 // Includes ###################################################################
